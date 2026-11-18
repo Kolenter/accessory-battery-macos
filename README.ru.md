@@ -6,7 +6,15 @@
 
 Заряд клавиатуры, мыши, трекпада и наушников прямо в строке меню macOS.
 
-[Скачать v1.8.1 (.dmg)](https://github.com/Kolenter/accessory-battery-macos/releases/download/v1.8.1/accessory-battery-1.8.1.dmg) · macOS 12+ · Apple Silicon и Intel
+<a href="https://github.com/Kolenter/accessory-battery-macos/releases/download/v1.8.1/accessory-battery-1.8.1.dmg">
+  <img src="Resources/download-dmg-ru.png" alt="Скачать DMG" width="182" height="42">
+</a>
+
+[Релиз v1.8.1](https://github.com/Kolenter/accessory-battery-macos/releases/tag/v1.8.1) · macOS 12+ · Apple Silicon и Intel
+
+[Первый запуск на macOS](docs/first-launch.ru.md)
+
+## Скриншоты
 
 ![Заряд аксессуаров в строке меню macOS](screenshots/menu-bar.png)
 
@@ -16,7 +24,7 @@
 
 Откройте DMG и перетащите **«Заряд аксессуаров»** в **«Программы»**. По этому имени приложение можно найти в Finder или Spotlight.
 
-DMG пока без нотариализации Apple. Если macOS блокирует запуск, см. [инструкцию со скриншотами](docs/first-launch.ru.md).
+У DMG локальная подпись, поэтому первый запуск может потребовать ручного разрешения в macOS.
 
 ## Использование
 

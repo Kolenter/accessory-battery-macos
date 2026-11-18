@@ -6,7 +6,15 @@
 
 Battery percentages for your keyboard, mouse, trackpad, and headphones in the macOS menu bar.
 
-[Download v1.8.1 (.dmg)](https://github.com/Kolenter/accessory-battery-macos/releases/download/v1.8.1/accessory-battery-1.8.1.dmg) · macOS 12+ · Apple Silicon and Intel
+<a href="https://github.com/Kolenter/accessory-battery-macos/releases/download/v1.8.1/accessory-battery-1.8.1.dmg">
+  <img src="Resources/download-dmg.png" alt="Download DMG" width="182" height="42">
+</a>
+
+[Release v1.8.1](https://github.com/Kolenter/accessory-battery-macos/releases/tag/v1.8.1) · macOS 12+ · Apple Silicon and Intel
+
+[First launch on macOS](docs/first-launch.md)
+
+## Screenshots
 
 ![Accessory battery levels in the macOS menu bar](screenshots/menu-bar.png)
 
@@ -16,7 +24,7 @@ Battery percentages for your keyboard, mouse, trackpad, and headphones in the ma
 
 Open the DMG and drag **Заряд аксессуаров** to **Applications**. That’s the name to look for in Finder or Spotlight.
 
-The DMG is not notarized. If macOS blocks the first launch, see [First launch on macOS](docs/first-launch.md).
+The DMG uses an ad hoc signature, so macOS may ask you to allow the first launch manually.
 
 ## Use
 

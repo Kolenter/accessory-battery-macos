@@ -16,8 +16,9 @@ executable="$app/Contents/MacOS/AccessoryBattery"
 build_dir="$project_dir/build"
 image="$build_dir/accessory-battery-$version.dmg"
 
-/bin/mkdir -p "$app/Contents/MacOS" "$build_dir"
+/bin/mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources" "$build_dir"
 /bin/cp "$info_plist" "$app/Contents/Info.plist"
+/bin/cp "$project_dir/Resources/AccessoryBattery.icns" "$app/Contents/Resources/AccessoryBattery.icns"
 
 for architecture in arm64 x86_64; do
     /usr/bin/swiftc -swift-version 6 -O -warnings-as-errors \

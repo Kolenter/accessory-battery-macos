@@ -20,6 +20,10 @@ image="$build_dir/accessory-battery-$version.dmg"
 /bin/cp "$info_plist" "$app/Contents/Info.plist"
 /bin/cp "$project_dir/Resources/AccessoryBattery.icns" "$app/Contents/Resources/AccessoryBattery.icns"
 
+for language in en ru; do
+    /usr/bin/ditto "$project_dir/Resources/$language.lproj" "$app/Contents/Resources/$language.lproj"
+done
+
 for architecture in arm64 x86_64; do
     /usr/bin/swiftc -swift-version 6 -O -warnings-as-errors \
         -target "$architecture-apple-macos$minimum_macos" \

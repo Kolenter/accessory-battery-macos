@@ -2,9 +2,9 @@
 
 **English** · [Русский](first-launch.ru.md)
 
-1. Download the DMG from the [GitHub release](https://github.com/Kolenter/accessory-battery-macos/releases/latest). Drag **Заряд аксессуаров** to **Applications** and open it.
+1. Download the DMG from the [GitHub release](https://github.com/Kolenter/accessory-battery-macos/releases/latest). Drag **Accessory Battery** to **Applications** and open it. On a Mac set to Russian the app is called **Заряд аксессуаров**.
 2. If macOS says Apple couldn’t verify the app, click **Done**.
-3. Open **System Settings** → **Privacy & Security**. Scroll to **Security** and click **Open Anyway** next to **Заряд аксессуаров**.
+3. Open **System Settings** → **Privacy & Security**. Scroll to **Security** and click **Open Anyway** next to the app.
 4. Confirm in the next dialog. Use Touch ID or your Mac password if prompted.
 
 ![Open Anyway for Accessory Battery in the Security section, shown in Russian](../screenshots/first-launch-security.png)

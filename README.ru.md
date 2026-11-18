@@ -6,11 +6,11 @@
 
 Заряд клавиатуры, мыши, трекпада и наушников прямо в строке меню macOS.
 
-<a href="https://github.com/Kolenter/accessory-battery-macos/releases/download/v1.8.1/accessory-battery-1.8.1.dmg">
+<a href="https://github.com/Kolenter/accessory-battery-macos/releases/download/v1.9.0/accessory-battery-1.9.0.dmg">
   <img src="Resources/download-dmg-ru.png" alt="Скачать DMG" width="182" height="42">
 </a>
 
-[Релиз v1.8.1](https://github.com/Kolenter/accessory-battery-macos/releases/tag/v1.8.1) · macOS 12+ · Apple Silicon и Intel
+[Релиз v1.9.0](https://github.com/Kolenter/accessory-battery-macos/releases/tag/v1.9.0) · macOS 12+ · Apple Silicon и Intel
 
 [Первый запуск на macOS](docs/first-launch.ru.md)
 
@@ -33,6 +33,10 @@
 Если macOS передаёт отдельные показания AirPods, в панели виден заряд левого и правого наушника. Футляр показан отдельной строкой. Данные обновляются примерно раз в 15 секунд. Заряд некоторых сторонних устройств доступен только в приложении производителя.
 
 При зарядке значок пульсирует синим. Красный появляется при заряде ниже 8%, если устройство сейчас не заряжается. Зелёный означает, что устройство подключено и заряд не ниже 8%.
+
+Язык можно выбрать в самой панели. По умолчанию приложение использует язык macOS. Вручную можно выбрать русский или английский.
+
+На macOS 13 и новее включите **«Запуск при входе»** в панели. Если понадобится подтверждение, рядом с переключателем появится ссылка на системные настройки. На macOS 12 приложение можно добавить вручную в **«Системные настройки» → «Пользователи и группы» → «Объекты входа»**.
 
 ## Сборка
 

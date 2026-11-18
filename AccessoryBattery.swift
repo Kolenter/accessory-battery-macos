@@ -3,9 +3,49 @@ import CoreAudio
 import IOKit
 import IOKit.ps
 import QuartzCore
+import ServiceManagement
 import SwiftUI
 
 private let chargingCaseSymbol = "airpods.chargingcase"
+
+private enum AppLanguage: String, CaseIterable {
+    case system
+    case english = "en"
+    case russian = "ru"
+
+    static let preferenceKey = "InterfaceLanguage"
+
+    init(preferences: UserDefaults) {
+        self = AppLanguage(rawValue: preferences.string(forKey: Self.preferenceKey) ?? "") ?? .system
+    }
+
+    func title(in strings: AppStrings) -> String {
+        switch self {
+        case .system: strings.text("language.system")
+        case .english: "English"
+        case .russian: "Русский"
+        }
+    }
+}
+
+private struct AppStrings {
+    private let bundle: Bundle
+
+    init(_ language: AppLanguage) {
+        if language != .system,
+           let url = Bundle.main.url(forResource: language.rawValue, withExtension: "lproj"),
+           let localization = Bundle(url: url) {
+            bundle = localization
+        } else {
+            bundle = .main
+        }
+    }
+
+    func text(_ key: String, _ arguments: CVarArg...) -> String {
+        let value = bundle.localizedString(forKey: key, value: nil, table: nil)
+        return arguments.isEmpty ? value : String(format: value, arguments: arguments)
+    }
+}
 
 private enum IconHighlight {
     case connected, lowBattery, charging
@@ -36,8 +76,8 @@ private struct Indicator: Identifiable {
     let isConnected: Bool
     var isCharging = false
 
-    var title: String {
-        let status = isCharging ? " · Заряжается" : ""
+    func title(in strings: AppStrings) -> String {
+        let status = isCharging ? " · \(strings.text("battery.charging"))" : ""
         return "\(name) · \(detail ?? "\(percent)%")\(status)"
     }
 
@@ -99,36 +139,57 @@ private struct Reading: Equatable, Sendable {
     var primaryPercent: Int? { [left, right].compactMap { $0 }.min() ?? main }
     var hasCharge: Bool { primaryPercent != nil || chargingCase != nil }
 
-    private var primaryLevelText: String {
+    private func primaryLevelText(in strings: AppStrings) -> String {
         var details: [String] = []
-        if let left { details.append("Левый \(left)%") }
-        if let right { details.append("Правый \(right)%") }
+        if let left { details.append(strings.text("battery.left", String(left))) }
+        if let right { details.append(strings.text("battery.right", String(right))) }
         if details.isEmpty, let main { details.append("\(main)%") }
         return details.joined(separator: " · ")
     }
 
-    var levelText: String {
-        var details = primaryLevelText.isEmpty ? [] : [primaryLevelText]
-        if let chargingCase { details.append("Кейс \(chargingCase)%") }
+    func levelText(in strings: AppStrings) -> String {
+        let primary = primaryLevelText(in: strings)
+        var details = primary.isEmpty ? [] : [primary]
+        if let chargingCase { details.append(strings.text("battery.case", String(chargingCase))) }
         return details.joined(separator: " · ")
     }
 
-    var title: String { "\(name) · \(levelText)" }
+    func displayName(in strings: AppStrings) -> String {
+        name.isEmpty ? strings.text("device.case.unnamed") : name
+    }
 
-    var indicators: [Indicator] {
-        let key = identifier.map { "id:\($0)" } ?? "name:\(name.lowercased())"
+    private func caseName(in strings: AppStrings) -> String {
+        if primaryPercent == nil, let chargingCaseName {
+            // macOS can report just the case, with a name in the system language.
+            let russianPrefix = "Футляр «"
+            if chargingCaseName.hasPrefix(russianPrefix), chargingCaseName.hasSuffix("»") {
+                let headset = String(chargingCaseName.dropFirst(russianPrefix.count).dropLast())
+                return strings.text("device.case.named", headset)
+            }
+            if chargingCaseName.hasSuffix(" Case") {
+                return strings.text("device.case.named", String(chargingCaseName.dropLast(" Case".count)))
+            }
+            return chargingCaseName
+        }
+        return name.isEmpty ? strings.text("device.case.unnamed") : strings.text("device.case.named", name)
+    }
+
+    func indicators(in strings: AppStrings) -> [Indicator] {
+        // Keep the old fallback key for a case reported without a name or identifier.
+        let fallbackName = name.isEmpty ? "кейс наушников" : name.lowercased()
+        let key = identifier.map { "id:\($0)" } ?? "name:\(fallbackName)"
         var indicators: [Indicator] = []
         if let primaryPercent {
             indicators.append(Indicator(
-                id: "device:\(key)", name: name, detail: left != nil || right != nil ? primaryLevelText : nil,
+                id: "device:\(key)", name: name,
+                detail: left != nil || right != nil ? primaryLevelText(in: strings) : nil,
                 symbol: accessory.symbol, percent: primaryPercent, isConnected: isConnected,
                 isCharging: isCharging
             ))
         }
         if let chargingCase {
-            let caseName = chargingCaseName ?? "Футляр «\(name)»"
             indicators.append(Indicator(
-                id: "case:\(key)", name: caseName,
+                id: "case:\(key)", name: caseName(in: strings),
                 symbol: chargingCaseSymbol, percent: chargingCase, isConnected: isConnected,
                 isCharging: caseIsCharging
             ))
@@ -267,14 +328,14 @@ private func powerSourceReadings(_ report: Data) -> [Reading] {
         let caseName = (caseSource?["Name"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         let transport = nameSource?[kIOPSTransportTypeKey] as? String ?? ""
         let reading = Reading(
-            name: name.isEmpty ? "Кейс наушников" : name,
+            name: name,
             accessory: Accessory(name: name, type: category),
             main: powerSourcePercent(main),
             left: powerSourcePercent(leftSource),
             right: powerSourcePercent(rightSource),
             chargingCase: powerSourcePercent(caseSource),
             identifier: identifier,
-            chargingCaseName: caseName.isEmpty ? (name.isEmpty ? "Футляр наушников" : nil) : caseName,
+            chargingCaseName: caseName.isEmpty ? nil : caseName,
             isConnected: [kIOPSUSBTransportType, kIOPSSerialTransportType, kIOPSNetworkTransportType].contains(transport),
             isCharging: [main, leftSource, rightSource].contains(where: powerSourceIsCharging),
             caseIsCharging: powerSourceIsCharging(caseSource)
@@ -328,7 +389,7 @@ private func accessoryReadings(
     }
     return readings.sorted {
         if $0.accessory != $1.accessory { return $0.accessory.rawValue < $1.accessory.rawValue }
-        return $0.title.localizedStandardCompare($1.title) == .orderedAscending
+        return $0.name.localizedStandardCompare($1.name) == .orderedAscending
     }
 }
 
@@ -440,19 +501,54 @@ private final class IconHighlights: NSView {
     }
 }
 
+private enum LoginItemState {
+    case unavailable, off, on, needsApproval
+
+    var isRequested: Bool { self == .on || self == .needsApproval }
+
+    static var current: Self {
+        guard #available(macOS 13, *) else { return .unavailable }
+        switch SMAppService.mainApp.status {
+        case .enabled: return .on
+        case .requiresApproval: return .needsApproval
+        case .notRegistered, .notFound: return .off
+        @unknown default: return .unavailable
+        }
+    }
+
+    static func setEnabled(_ enabled: Bool) throws {
+        guard #available(macOS 13, *) else { return }
+        let service = SMAppService.mainApp
+        if enabled {
+            if !current.isRequested { try service.register() }
+        } else if current.isRequested {
+            try service.unregister()
+        }
+    }
+}
+
 @MainActor
 private final class BatteryPanelState: ObservableObject {
     @Published var indicators: [Indicator] = []
     @Published var hidden: Set<String>
+    @Published var language: AppLanguage
+    @Published var loginItem = LoginItemState.current
+    @Published var loginItemError: String?
 
-    init(hidden: Set<String>) {
+    var strings: AppStrings { AppStrings(language) }
+
+    init(hidden: Set<String>, language: AppLanguage) {
         self.hidden = hidden
+        self.language = language
     }
 }
 
 private struct BatteryPanel: View {
     @ObservedObject var state: BatteryPanelState
     let setVisible: (String, Bool) -> Void
+    let setLanguage: (AppLanguage) -> Void
+    let setLoginItem: (Bool) -> Void
+    let openLoginSettings: () -> Void
     let refresh: () -> Void
     let quit: () -> Void
 
@@ -460,18 +556,20 @@ private struct BatteryPanel: View {
     private static let headerHeight: CGFloat = 56
     private static let rowHeight: CGFloat = 46
     private static let footerHeight: CGFloat = 40
+    private static let settingsHeight: CGFloat = 72
     private static let listPadding: CGFloat = 5
     private static let emptyHeight: CGFloat = 68
     private static let visibleRows = 6
     private let inset: CGFloat = 15
     private let visibilityWidth: CGFloat = 43
+    private var strings: AppStrings { state.strings }
 
     private static func listHeight(for count: Int) -> CGFloat {
         count == 0 ? emptyHeight : rowHeight * CGFloat(min(count, visibleRows)) + 2 * listPadding
     }
 
     static func size(for count: Int) -> CGSize {
-        CGSize(width: width, height: headerHeight + listHeight(for: count) + footerHeight + 2)
+        CGSize(width: width, height: headerHeight + listHeight(for: count) + settingsHeight + footerHeight + 3)
     }
 
     var body: some View {
@@ -479,7 +577,7 @@ private struct BatteryPanel: View {
             header
             rule
             if state.indicators.isEmpty {
-                Text("Нет аксессуаров с данными о заряде")
+                Text(strings.text("battery.empty"))
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -498,6 +596,8 @@ private struct BatteryPanel: View {
                 .frame(height: Self.listHeight(for: state.indicators.count))
             }
             rule
+            settings
+            rule
             footer
         }
         .frame(width: Self.width)
@@ -511,12 +611,12 @@ private struct BatteryPanel: View {
                 .frame(width: 32, height: 32)
                 .background(Color.accentColor.opacity(0.12), in: RoundedRectangle(cornerRadius: 9))
                 .accessibilityHidden(true)
-            Text("Заряд аксессуаров")
+            Text(strings.text("app.name"))
                 .font(.system(size: 15, weight: .semibold))
                 .accessibilityAddTraits(.isHeader)
             Spacer()
             if !state.indicators.isEmpty {
-                Text("В баре")
+                Text(strings.text("panel.menuBar"))
                     .font(.system(size: 10, weight: .medium))
                     .foregroundStyle(.secondary)
                     .frame(width: visibilityWidth)
@@ -561,7 +661,7 @@ private struct BatteryPanel: View {
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 } else if indicator.isCharging {
-                    Label("Заряжается", systemImage: "bolt.fill")
+                    Label(strings.text("battery.charging"), systemImage: "bolt.fill")
                         .font(.system(size: 10, weight: .medium))
                         .foregroundStyle(Color(nsColor: .systemBlue))
                 }
@@ -578,17 +678,17 @@ private struct BatteryPanel: View {
                 }
                 .monospacedDigit()
                 .accessibilityElement(children: .ignore)
-                .accessibilityLabel("\(indicator.percent) процентов")
+                .accessibilityLabel(strings.text("battery.percent.accessibility", String(indicator.percent)))
                 if indicator.isCharging && indicator.detail != nil {
                     Image(systemName: "bolt.fill")
                         .font(.system(size: 9, weight: .medium))
                         .foregroundStyle(Color(nsColor: .systemBlue))
-                        .accessibilityLabel("Заряжается")
+                        .accessibilityLabel(strings.text("battery.charging"))
                 }
             }
             .frame(width: 42, alignment: .trailing)
 
-            Toggle("Показывать \(indicator.name) в строке меню", isOn: Binding(
+            Toggle(strings.text("visibility.accessibility", indicator.name), isOn: Binding(
                 get: { !state.hidden.contains(indicator.id) },
                 set: { setVisible(indicator.id, $0) }
             ))
@@ -597,19 +697,77 @@ private struct BatteryPanel: View {
             .controlSize(.small)
             .fixedSize()
             .frame(width: visibilityWidth)
-            .help("Показывать в строке меню")
+            .help(strings.text("visibility.help"))
         }
         .frame(height: Self.rowHeight)
+    }
+
+    private var settings: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Text(strings.text("settings.language"))
+                Spacer()
+                Picker(strings.text("settings.language"), selection: Binding(
+                    get: { state.language },
+                    set: { setLanguage($0) }
+                )) {
+                    ForEach(AppLanguage.allCases, id: \.self) { language in
+                        Text(language.title(in: strings)).tag(language)
+                    }
+                }
+                .labelsHidden()
+                .pickerStyle(.segmented)
+                .controlSize(.small)
+                .frame(width: 216)
+            }
+            .frame(height: 32)
+
+            HStack {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(strings.text("settings.login"))
+                    if state.loginItem == .needsApproval {
+                        Button(strings.text("settings.login.approval"), action: openLoginSettings)
+                            .buttonStyle(.borderless)
+                            .font(.system(size: 10))
+                    } else if let error = state.loginItemError {
+                        Text(strings.text("settings.login.error"))
+                            .font(.system(size: 10))
+                            .foregroundStyle(.secondary)
+                            .help(error)
+                    }
+                }
+                Spacer()
+                if state.loginItem == .unavailable {
+                    Text(strings.text("settings.login.unavailable"))
+                        .font(.system(size: 10))
+                        .foregroundStyle(.secondary)
+                } else {
+                    Toggle(strings.text("settings.login"), isOn: Binding(
+                        get: { state.loginItem.isRequested },
+                        set: { setLoginItem($0) }
+                    ))
+                    .labelsHidden()
+                    .toggleStyle(.switch)
+                    .controlSize(.small)
+                    .fixedSize()
+                    .frame(width: visibilityWidth)
+                }
+            }
+            .frame(height: 40)
+        }
+        .font(.system(size: 12, weight: .medium))
+        .padding(.horizontal, inset)
+        .frame(height: Self.settingsHeight)
     }
 
     private var footer: some View {
         HStack {
             Button(action: refresh) {
-                Label("Обновить", systemImage: "arrow.clockwise")
+                Label(strings.text("panel.refresh"), systemImage: "arrow.clockwise")
             }
             .keyboardShortcut("r", modifiers: .command)
             Spacer()
-            Button("Выйти", action: quit)
+            Button(strings.text("panel.quit"), action: quit)
                 .foregroundStyle(.secondary)
                 .keyboardShortcut("q", modifiers: .command)
         }
@@ -637,14 +795,19 @@ private final class BatteryMenu: NSObject, NSApplicationDelegate {
 
     init(preferences: UserDefaults = .standard) {
         self.preferences = preferences
-        self.panelState = BatteryPanelState(hidden: Set(preferences.stringArray(forKey: hiddenKey) ?? []))
+        self.panelState = BatteryPanelState(
+            hidden: Set(preferences.stringArray(forKey: hiddenKey) ?? []),
+            language: AppLanguage(preferences: preferences)
+        )
         super.init()
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         popover.behavior = .transient
         item.button?.imagePosition = .imageOnly
-        item.button?.image = NSImage(systemSymbolName: Accessory.other.symbol, accessibilityDescription: "Заряд аксессуаров")
+        item.button?.image = NSImage(
+            systemSymbolName: Accessory.other.symbol, accessibilityDescription: panelState.strings.text("app.name")
+        )
         chargingHighlights.wantsLayer = true
         if let button = item.button {
             button.target = self
@@ -676,15 +839,34 @@ private final class BatteryMenu: NSObject, NSApplicationDelegate {
         NSWorkspace.shared.notificationCenter.removeObserver(self)
     }
 
+    func applicationDidBecomeActive(_ notification: Notification) {
+        panelState.loginItem = LoginItemState.current
+    }
+
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        if let button = item.button, !popover.isShown { showPopover(at: button) }
+        return false
+    }
+
     @objc private func togglePopover(_ sender: NSStatusBarButton) {
         if popover.isShown {
             popover.performClose(sender)
             return
         }
+        showPopover(at: sender)
+    }
+
+    private func showPopover(at sender: NSStatusBarButton) {
+        panelState.loginItem = LoginItemState.current
         if popover.contentViewController == nil {
             let panel = BatteryPanel(
                 state: panelState,
                 setVisible: { [weak self] id, visible in self?.setIndicatorVisibility(id, visible: visible) },
+                setLanguage: { [weak self] language in self?.setLanguage(language) },
+                setLoginItem: { [weak self] enabled in self?.setLoginItemEnabled(enabled) },
+                openLoginSettings: {
+                    if #available(macOS 13, *) { SMAppService.openSystemSettingsLoginItems() }
+                },
                 refresh: { [weak self] in self?.refresh() },
                 quit: { NSApp.terminate(nil) }
             )
@@ -711,11 +893,33 @@ private final class BatteryMenu: NSObject, NSApplicationDelegate {
     private func show(_ readings: [Reading]) {
         guard readings != displayedReadings else { return }
         displayedReadings = readings
-        panelState.indicators = readings.flatMap(\.indicators)
+        updateIndicators()
+    }
+
+    private func updateIndicators() {
+        let strings = panelState.strings
+        panelState.indicators = (displayedReadings ?? []).flatMap { $0.indicators(in: strings) }
         if popover.isShown {
             popover.contentSize = BatteryPanel.size(for: panelState.indicators.count)
         }
         updateStatusItem()
+    }
+
+    private func setLanguage(_ language: AppLanguage) {
+        guard language != panelState.language else { return }
+        panelState.language = language
+        preferences.set(language.rawValue, forKey: AppLanguage.preferenceKey)
+        updateIndicators()
+    }
+
+    private func setLoginItemEnabled(_ enabled: Bool) {
+        panelState.loginItemError = nil
+        do {
+            try LoginItemState.setEnabled(enabled)
+        } catch {
+            panelState.loginItemError = error.localizedDescription
+        }
+        panelState.loginItem = LoginItemState.current
     }
 
     private func setIndicatorVisibility(_ id: String, visible: Bool) {
@@ -730,14 +934,15 @@ private final class BatteryMenu: NSObject, NSApplicationDelegate {
 
     private func updateStatusItem() {
         let visible = panelState.indicators.filter { !panelState.hidden.contains($0.id) }
+        let strings = panelState.strings
         let summary: String
         if visible.isEmpty {
-            summary = panelState.indicators.isEmpty ? "Нет данных о заряде аксессуаров" : "Все показатели скрыты"
+            summary = strings.text(panelState.indicators.isEmpty ? "battery.empty" : "visibility.allHidden")
             item.button?.image = NSImage(systemSymbolName: Accessory.other.symbol, accessibilityDescription: summary)
             iconHighlights.update(symbols: [])
             chargingHighlights.update(symbols: [])
         } else {
-            summary = visible.map(\.title).joined(separator: "\n")
+            summary = visible.map { $0.title(in: strings) }.joined(separator: "\n")
             let status = makeStatusImage(visible)
             item.button?.image = status.image
             iconHighlights.update(
@@ -822,8 +1027,9 @@ private final class BatteryMenu: NSObject, NSApplicationDelegate {
 }
 
 if CommandLine.arguments.dropFirst() == ["--status"] {
+    let strings = AppStrings(AppLanguage(preferences: .standard))
     for reading in readBatteries() {
-        print("\(reading.name): \(reading.levelText)")
+        print("\(reading.displayName(in: strings)): \(reading.levelText(in: strings))")
     }
 } else {
     MainActor.assumeIsolated {

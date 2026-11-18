@@ -1,32 +1,35 @@
-# Заряд аксессуаров
+# Accessory Battery for macOS
 
-Индикатор заряда аксессуаров для строки меню macOS. Показывает проценты рядом со значками клавиатуры, мыши, трекпада, наушников и других устройств, для которых macOS сообщает заряд.
+**English** · [Русский](README.ru.md)
 
-![Заряд аксессуаров в строке меню macOS](screenshots/menu-bar.png)
+Battery percentages for your keyboard, mouse, trackpad, and headphones in the macOS menu bar.
 
-<img src="screenshots/panel.jpg" alt="Панель со списком устройств, уровнями заряда и переключателями видимости" width="404">
+[Download v1.8 (.dmg)](https://github.com/Kolenter/accessory-battery-macos/releases/download/v1.8/accessory-battery-1.8.dmg) · macOS 12+ · Apple Silicon and Intel
 
-## Установка
+![Accessory battery levels in the macOS menu bar](screenshots/menu-bar.png)
 
-1. Скачайте [accessory-battery-1.8.dmg](https://github.com/Kolenter/accessory-battery-macos/releases/download/v1.8/accessory-battery-1.8.dmg).
-2. Откройте образ и перетащите «Заряд аксессуаров» в «Программы».
-3. Запустите приложение через Finder или Spotlight.
+<img src="screenshots/panel.jpg" alt="The device panel with battery levels and individual visibility switches" width="404">
 
-В образе сборка для Apple Silicon и Intel с macOS 12 или новее. Релиз подписан локальной подписью и опубликован без нотариализации Apple. Если macOS блокирует скачанную сборку, приложение можно собрать из исходников.
+## Install
 
-## Использование
+Open the DMG and drag **Заряд аксессуаров** to **Applications**. That’s the name to look for in Finder or Spotlight.
 
-- Нажмите на индикатор, чтобы увидеть детали заряда и выбрать устройства в колонке «В баре». Выбор сохраняется после перезапуска.
-- У AirPods панель показывает заряд левого и правого наушника, когда эти данные доступны. Футляр имеет свой показатель и переключатель.
-- При зарядке значок пульсирует синим. При заряде ниже 8% без активной зарядки значок красный. У остальных подключённых устройств значок зелёный.
-- Индикатор обновляет данные примерно раз в 15 секунд. Заряд сторонних аксессуаров зависит от того, публикует ли его macOS.
+This build uses an ad hoc signature, so Gatekeeper may block the download. If that happens, build a local copy with the command below.
 
-## Сборка
+## Use
 
-Понадобятся Xcode Command Line Tools со Swift 6. Из корня репозитория запустите:
+Click the menu bar indicator to see the device list. Use the switches under **В баре** to choose what appears in the menu bar. Your choices are saved.
+
+When macOS reports separate AirPods levels, the panel shows the left and right earbuds and gives the case its own row. The app updates about every 15 seconds. Some third-party devices only show their battery level in the manufacturer’s app.
+
+The icon pulses blue while charging. Otherwise it turns red below 8%, or green if the device is connected and has at least 8% left.
+
+## Build
+
+Install Xcode Command Line Tools with Swift 6, then run this from the repository root.
 
 ```sh
 ./build.sh
 ```
 
-Скрипт создаст универсальный образ `build/accessory-battery-1.8.dmg`. Код приложения находится в `AccessoryBattery.swift`.
+The universal DMG is written to `build/`.
